@@ -22,10 +22,12 @@ def load_and_preprocess_data(file_path):
     if 'FICO_Score' not in df.columns:
         df['FICO_Score'] = 0
 
+    df['FICO_Score'] = df['FICO_Score'] ** 3
+
     # ステップ2
     df['income_per_service'] = df['Annual_Income(USD)'] / (df['Years_of_Service'] + 1)
     df['estimated_asset_score'] = df['Annual_Income(USD)'] * df['Years_of_Service']
-    df['total_financial_power'] = df['Annual_Income(USD)'] + df['Savings']
+    df['total_financial_power'] = (df['Annual_Income(USD)'] + df['Savings']) ** 2
 
     # ステップ3: モデルが使用する特徴量を選択
     features_df = df[[

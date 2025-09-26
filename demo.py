@@ -9,9 +9,6 @@ import os
 MODEL_PATH = 'final_model.pkl'
 SCALER_PATH = 'scaler.pkl'
 
-# ==============================================================================
-# 1. Function to Train and Save the Final Model for the Demo
-# ==============================================================================
 def train_and_save_final_model():
     """
     Loads all data, preprocesses it, trains the definitive model,
@@ -25,6 +22,7 @@ def train_and_save_final_model():
             st.error(f"Data file not found: {e}. Please ensure 'data_usa.csv' and 'data_japan.csv' are present.")
             return
 
+        # --- 特徴量エンジニアリング（client.pyと完全に一致させる） ---
         df_japan['Annual_Income(USD)'] = df_japan['Annual_Income(JPY)'] / 145.0
         df_japan['Savings'] = df_japan['Saving(JPY)'] / 145.0
         if 'FICO_Score' not in df_japan.columns:
@@ -35,18 +33,20 @@ def train_and_save_final_model():
 
         if 'FICO_Score' not in df_combined.columns:
             df_combined['FICO_Score'] = 0
+        df_combined['FICO_Score'] = df_combined['FICO_Score'] ** 3
         df_combined['Loan_Status'] = df_combined['Loan_Status'].apply(lambda x: 1 if x == 'Yes' or x == 1 else 0)
         df_combined['income_per_service'] = df_combined['Annual_Income(USD)'] / (df_combined['Years_of_Service'] + 1)
         df_combined['estimated_asset_score'] = df_combined['Annual_Income(USD)'] * df_combined['Years_of_Service']
-        df_combined['total_financial_power'] = df_combined['Annual_Income(USD)'] + df_combined['Savings']
+        df_combined['total_financial_power'] = (df_combined['Annual_Income(USD)'] + df_combined['Savings']) ** 2 # 【重要】新しい特徴量を計算
 
-
+        # 【重要】学習に使う特徴量リストをclient.pyと完全に一致させる
         features_df = df_combined[[
             'Age', 'Annual_Income(USD)', 'Years_of_Service', 'Loan_Status', 'FICO_Score',
-            'income_per_service', 'estimated_asset_score', 'total_financial_power', 'Savings'
+            'income_per_service', 'estimated_asset_score', 'Savings', 'total_financial_power'
         ]]
         target = df_combined['Payment_Delay']
 
+        # スケーラーを新しい特徴量で fit する
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(features_df)
 
@@ -60,9 +60,7 @@ def train_and_save_final_model():
     st.success("✅ Model and scaler have been trained and saved successfully!")
     st.info("Reloading the app...")
 
-# ==============================================================================
-# 2. Function to Build and Run the Streamlit Web Application
-# ==============================================================================
+    
 def run_app():
     st.set_page_config(page_title="Global Credit Score Predictor", layout="wide")
     st.title("🌍 Global Credit Score Predictor")
@@ -90,17 +88,17 @@ def run_app():
     
     col1, col2 = st.columns([2, 1])
     with col1:
-        age = st.number_input("Age", min_value=18, max_value=100, value=35)
+        age = st.number_input("Age", min_value=18, max_value=100, value=19)
         currency = st.selectbox("Currency", ("USD", "JPY"))
         income_label = f"Annual Income ({currency})"
-        annual_income_input = st.number_input(income_label, min_value=0, value=60000 if currency == "USD" else 7000000)
+        annual_income_input = st.number_input(income_label, min_value=0, value=60000 if currency == "USD" else 12000000)
         savings_label = f"Total Savings ({currency})"
-        savings_input = st.number_input(savings_label, min_value=0, value=20000 if currency == "USD" else 2500000)
+        savings_input = st.number_input(savings_label, min_value=0, value=20000 if currency == "USD" else 60000000)
 
     with col2:
-        years_of_service = st.number_input("Years of Service", min_value=0, max_value=50, value=5)
+        years_of_service = st.number_input("Years of Service", min_value=0, max_value=50, value=1)
         loan_status = st.selectbox("Has Existing Loan?", ("No", "Yes"), index=0)
-        fico_score = st.number_input("FICO Score (if available)", min_value=300, max_value=850, value=650)
+        fico_score = st.number_input("FICO Score (if available)", min_value=300, max_value=850, value=750)
 
     if st.button("Predict Payment Delay Risk", type="primary"):
         JPY_TO_USD_RATE = 145.0
@@ -114,13 +112,16 @@ def run_app():
         loan_status_numeric = 1 if loan_status == "Yes" else 0
         income_per_service = annual_income_usd / (years_of_service + 1)
         estimated_asset_score = annual_income_usd * years_of_service
+        total_financial_power = (annual_income_usd + savings_usd) ** 2
+
+        fico_score = fico_score ** 3
 
         input_data = pd.DataFrame([[
             age, annual_income_usd, years_of_service, loan_status_numeric, fico_score,
-            income_per_service, estimated_asset_score, savings_usd
+            income_per_service, estimated_asset_score, savings_usd, total_financial_power
         ]], columns=[
             'Age', 'Annual_Income(USD)', 'Years_of_Service', 'Loan_Status', 'FICO_Score',
-            'income_per_service', 'estimated_asset_score', 'Savings'
+            'income_per_service', 'estimated_asset_score', 'Savings', 'total_financial_power'
         ])
 
         input_scaled = scaler.transform(input_data)
