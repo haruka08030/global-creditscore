@@ -15,20 +15,22 @@ def load_and_preprocess_data(file_path):
     # ステップ1: 基本的な前処理
     if 'japan' in file_path:
         df['Annual_Income(USD)'] = df['Annual_Income(JPY)'] / JPY_TO_USD_RATE
+        df['Savings'] = df['Saving(JPY)'] / JPY_TO_USD_RATE
+    else:
+        df.rename(columns={'Saving(USD)': 'Savings'}, inplace=True)
     
-    # FICOスコアの安全な処理
     if 'FICO_Score' not in df.columns:
         df['FICO_Score'] = 0
 
-    # ステップ2: 特徴量エンジニアリング（不要なものは削除済み）
+    # ステップ2
     df['income_per_service'] = df['Annual_Income(USD)'] / (df['Years_of_Service'] + 1)
     df['estimated_asset_score'] = df['Annual_Income(USD)'] * df['Years_of_Service']
+    df['total_financial_power'] = df['Annual_Income(USD)'] + df['Savings']
 
     # ステップ3: モデルが使用する特徴量を選択
-    # ★★【修正点】リストから 'experience_ratio' を削除 ★★
     features_df = df[[
         'Age', 'Annual_Income(USD)', 'Years_of_Service', 'Loan_Status', 'FICO_Score',
-        'income_per_service', 'estimated_asset_score'
+        'income_per_service', 'estimated_asset_score', 'total_financial_power', 'Savings'
     ]]
     target = df['Payment_Delay']
     
